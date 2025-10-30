@@ -1,4 +1,4 @@
-##PROJECT UTS SISTEM PAKAR
+##project uts sistem pakar
 
 ---
 
