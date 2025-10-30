@@ -13,7 +13,7 @@ export default function ResultPage() {
     console.error("Error decoding data:", err);
   }
 
-  // Mencari rule paling cocok berdasarkan jawaban
+  
   let bestMatch: any = null;
   let bestScore = 0;
 
