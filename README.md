@@ -1,4 +1,4 @@
-<img width="1910" height="912" alt="Screenshot 2025-10-30 172340" src="https://github.com/user-attachments/assets/b8f9ef38-cadb-4fc6-957a-5d10c6e5b2c2" /><img width="1910" height="912" alt="Screenshot 2025-10-30 172340" src="https://github.com/user-attachments/assets/c118b3c6-028c-45b1-8b62-7db7fec15935" /># Project UTS Sistem Pakar
+# Project UTS Sistem Pakar
 
 ---
 
