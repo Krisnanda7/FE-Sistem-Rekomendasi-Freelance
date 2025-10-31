@@ -1,16 +1,34 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { questions } from "../data/rules";
 
-export default function QuestionBox({ onBack }: { onBack: () => void }) {
+export default function QuestionBox({ onBack }: { onBack?: () => void }) {
+  const [questions, setQuestions] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<boolean[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
+  // 🔹 Ambil pertanyaan dari backend Laravel
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/questions")
+      .then((res) => res.json())
+      .then((data) => {
+        // Pastikan field-nya sesuai model Laravel: text / question_text
+        const list = data.map((q: any) => q.text || q.question_text);
+        setQuestions(list);
+      })
+      .catch((err) => console.error("Error fetching questions:", err));
+  }, []);
+
+  // 🔹 Tombol "Sebelumnya"
+  const handlePrevious = () => {
+    if (index > 0) setIndex(index - 1);
+  };
+
+  // 🔹 Ketika pengguna menjawab pertanyaan
   const handleAnswer = (value: boolean) => {
     const newAnswers = [...answers];
     newAnswers[index] = value;
@@ -19,16 +37,29 @@ export default function QuestionBox({ onBack }: { onBack: () => void }) {
     if (index + 1 < questions.length) {
       setIndex(index + 1);
     } else {
+      // Sudah sampai akhir → kirim ke backend
       setIsLoading(true);
-      const encoded = btoa(JSON.stringify(newAnswers));
-      setTimeout(() => {
-        router.push(`/result?data=${encoded}`);
-      }, 2500);
-    }
-  };
 
-  const handlePrevious = () => {
-    if (index > 0) setIndex(index - 1);
+      fetch("http://127.0.0.1:8000/api/results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: newAnswers }),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error("Gagal kirim data ke backend");
+          return res.json();
+        })
+        .then((data) => {
+          // Encode jawaban agar bisa dikirim ke halaman result
+          const encoded = btoa(JSON.stringify(newAnswers));
+          router.push(`/result?data=${encoded}`);
+        })
+        .catch((err) => {
+          console.error("Error submitting answers:", err);
+          alert("Terjadi kesalahan saat mengirim data!");
+          setIsLoading(false);
+        });
+    }
   };
 
   return (
@@ -51,7 +82,7 @@ export default function QuestionBox({ onBack }: { onBack: () => void }) {
               className="flex justify-center w-full md:w-1/2"
             >
               <Image
-                src="/images/question.png" // pastikan file ini di folder /public
+                src="/images/question.png"
                 alt="Freelance Illustration"
                 width={300}
                 height={300}
@@ -112,7 +143,7 @@ export default function QuestionBox({ onBack }: { onBack: () => void }) {
                 </motion.button>
               </motion.div>
 
-              {/* Tombol navigasi bawah */}
+              {/* Navigasi Bawah */}
               <div className="flex justify-between mt-8">
                 <motion.button
                   onClick={handlePrevious}
@@ -127,11 +158,9 @@ export default function QuestionBox({ onBack }: { onBack: () => void }) {
                 >
                   Sebelumnya
                 </motion.button>
-
-                
               </div>
 
-              {/* Progress bar */}
+              {/* Progress Bar */}
               <motion.div
                 className="mt-6 w-full bg-gray-200 rounded-full h-3 overflow-hidden"
                 initial={{ opacity: 0 }}
@@ -149,7 +178,7 @@ export default function QuestionBox({ onBack }: { onBack: () => void }) {
             </div>
           </motion.div>
         ) : (
-          // Animasi Loading
+          // Loading Animation
           <motion.div
             key="loading"
             initial={{ opacity: 0 }}

@@ -4,7 +4,11 @@ import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
-export default function Navbar({ onNavigateHome }: { onNavigateHome: () => void }) {
+export default function Navbar({
+  onNavigateHome,
+}: {
+  onNavigateHome: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleNavigate = (target: string) => {
@@ -34,9 +38,7 @@ export default function Navbar({ onNavigateHome }: { onNavigateHome: () => void 
             height={50}
             className="rounded-md"
           />
-          <h1 className="text-xl font-bold text-white">
-            FreelanceExpert
-          </h1>
+          <h1 className="text-xl font-bold text-white">FreelanceExpert</h1>
         </motion.div>
 
         {/* === Menu Desktop === */}
@@ -57,7 +59,6 @@ export default function Navbar({ onNavigateHome }: { onNavigateHome: () => void 
               className="hover:text-[#2f526b] hover:bg-white border-2 border-white rounded-md px-2 py-1 transition"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              
             >
               Tentang
             </motion.button>

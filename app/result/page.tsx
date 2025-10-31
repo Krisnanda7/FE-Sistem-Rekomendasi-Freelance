@@ -3,41 +3,97 @@ import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { rules } from "../data/rules";
 import Navbar from "../components/navbar";
 
-export default function ResultPage({ onNavigateHome }: any) {
+export default function ResultPage() {
   const searchParams = useSearchParams();
   const data = searchParams.get("data");
+
+  const [result, setResult] = useState<any>(null);
+  const [rules, setRules] = useState<any[]>([]);
   const [showCongrats, setShowCongrats] = useState(false);
 
+  // ✅ Decode data jawaban user dari query param
   let answers: boolean[] = [];
   try {
     if (data) answers = JSON.parse(atob(data));
   } catch (err) {
-    console.error("Error decoding data:", err);
+    console.error("❌ Error decoding data:", err);
   }
 
-  // Cari rule terbaik
-  let bestMatch: any = null;
-  let bestScore = 0;
-  rules.forEach((rule) => {
-    let score = 0;
-    rule.conditions.forEach((cond: boolean, i: number) => {
-      if (answers[i] === cond) score++;
-    });
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = rule;
-    }
-  });
+  // ✅ Ambil rules dari backend
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/rules")
+      .then((res) => res.json())
+      .then((data) => {
+        console.log("✅ Rules dari backend:", data);
+        setRules(data);
+      })
+      .catch((err) => console.error("❌ Error fetching rules:", err));
+  }, []);
 
-  // Delay animasi selamat
+  // ✅ Proses hasil rekomendasi
+  useEffect(() => {
+    if (rules.length === 0 || answers.length === 0) return;
+
+    console.log("📩 Answers dari user:", answers);
+
+    let bestMatch: any = null;
+    let bestScore = 0;
+
+    rules.forEach((rule) => {
+      const conditions = rule.conditions;
+      if (!Array.isArray(conditions)) {
+        console.warn("⚠️ Kondisi bukan array:", conditions);
+        return;
+      }
+
+      let score = 0;
+      conditions.forEach((cond: boolean, i: number) => {
+        if (answers[i] === cond) score++;
+      });
+
+      console.log(`🔍 Skor ${rule.name}:`, score);
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = rule;
+      }
+    });
+
+    console.log("🏁 Best match:", bestMatch, "score:", bestScore);
+
+    // ✅ Kondisi tambahan: jika semua jawaban false → tidak ada rekomendasi
+    const allFalse = answers.every((a) => a === false);
+    const threshold = 5; // minimal 5 cocok untuk dapat rekomendasi
+
+    if (allFalse || !bestMatch || bestScore < threshold) {
+      setResult({
+        recommendation: null,
+        description: null,
+        score: bestScore,
+        percentage: Math.round((bestScore / 10) * 100),
+      });
+    } else {
+      const percentage = Math.round(
+        (bestScore / bestMatch.conditions.length) * 100
+      );
+      setResult({
+        recommendation: bestMatch.name,
+        description: bestMatch.description,
+        score: bestScore,
+        percentage,
+      });
+    }
+  }, [rules]);
+
+  // ✅ Delay animasi "Selamat!!"
   useEffect(() => {
     const timer = setTimeout(() => setShowCongrats(true), 400);
     return () => clearTimeout(timer);
   }, []);
 
+  // ✅ Tampilan UI hasil rekomendasi
   return (
     <>
       <Navbar onNavigateHome={() => (window.location.href = "/")} />
@@ -80,101 +136,109 @@ export default function ResultPage({ onNavigateHome }: any) {
               </motion.div>
             )}
 
-            {bestMatch && bestScore >= 6 ? (
-              <>
-                <h2 className="text-2xl font-bold text-[#2f526b]">
-                  Anda Direkomendasikan Menjadi
-                </h2>
-                <h3 className="text-2xl font-semibold text-[#5cc9cb]">
-                  "{bestMatch.name}"
-                </h3>
-                <p className="text-gray-700 leading-relaxed">
-                  {bestMatch.description}
-                </p>
-                <p className="text-gray-500 mt-4 text-sm">
-                  (Tingkat kecocokan: {bestScore}/10)
-                </p>
+            {result ? (
+              result.recommendation ? (
+                <>
+                  <h2 className="text-2xl font-bold text-[#2f526b]">
+                    Anda Direkomendasikan Menjadi :
+                  </h2>
+                  <h3 className="text-2xl font-semibold text-[#5cc9cb]">
+                    {result.recommendation}
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed">
+                    {result.description}
+                  </p>
+                  <div className="mt-4">
+                    <p className="text-gray-600 font-medium mb-2">
+                      Tingkat kecocokan: {result.score}/10 ({result.percentage}
+                      %)
+                    </p>
+                    <div className="w-full bg-gray-200 h-3 rounded-full">
+                      <div
+                        className="bg-[#5cc9cb] h-3 rounded-full transition-all"
+                        style={{ width: `${result.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
 
-                <motion.button
-                  onClick={() => (window.location.href = "/")}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="mt-6 px-8 py-3 bg-[#5cc9cb] hover:bg-[#49b4b6] text-white rounded-full font-semibold shadow-md transition"
-                >
-                  Kembali ke Home
-                </motion.button>
-              </>
+                  <motion.button
+                    onClick={() => (window.location.href = "/")}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="mt-6 px-8 py-3 bg-[#5cc9cb] hover:bg-[#49b4b6] text-white rounded-full font-semibold shadow-md transition"
+                  >
+                    Kembali ke Home
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-red-600 mb-4">
+                    Tidak Ada Rekomendasi yang Tepat 😢
+                  </h2>
+                  <p className="text-gray-700">
+                    Coba ulangi pertanyaan dengan jawaban berbeda.
+                  </p>
+                  <p className="text-gray-500 mt-2 text-sm">
+                    Tingkat kecocokan tertinggi hanya {result.score}/10 (
+                    {result.percentage}%)
+                  </p>
+                  <motion.button
+                    onClick={() => (window.location.href = "/")}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="mt-6 px-8 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-full font-semibold shadow-md transition"
+                  >
+                    Ulangi Pertanyaan
+                  </motion.button>
+                </>
+              )
             ) : (
-              <>
-                <h2 className="text-2xl font-bold text-red-600 mb-4">
-                  Tidak Ada Rekomendasi yang Tepat 😢
-                </h2>
-                <p className="text-gray-700">
-                  Coba ulangi pertanyaan dengan jawaban berbeda.
-                </p>
-                <motion.button
-                  onClick={() => (window.location.href = "/")}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="mt-6 px-8 py-3 bg-pink-400 hover:bg-pink-500 text-white rounded-full font-semibold shadow-md transition"
-                >
-                  Ulangi Pertanyaan
-                </motion.button>
-              </>
+              <p className="text-gray-500">Memuat hasil rekomendasi...</p>
             )}
           </div>
         </motion.div>
-        
 
         {/* Dekorasi latar belakang */}
         <div className="absolute top-10 left-10 w-16 h-16 bg-blue-300 rounded-full blur-2xl opacity-30 animate-pulse"></div>
         <div className="absolute bottom-16 right-12 w-24 h-24 bg-green-300 rounded-full blur-3xl opacity-30 animate-pulse"></div>
-        
       </main>
-      {/* Footer / Contact Section */}
-        <motion.footer
+
+      {/* Footer */}
+      <motion.footer
         id="contact"
-          className="w-full bg-[#2f526b] text-white text-center py-10 px-6"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.8 }}
-        >
-          <h2 className="text-2xl font-semibold mb-4">Hubungi Kami</h2>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-base">
-            {/* Nomor WhatsApp */}
-            <a
-              href="https://wa.me/6281234567890"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#5cc9cb] transition"
-            >
-              📞 +62 823-653-6783
-            </a>
+        className="w-full bg-[#2f526b] text-white text-center py-10 px-6"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.6, duration: 0.8 }}
+      >
+        <h2 className="text-2xl font-semibold mb-4">Hubungi Kami</h2>
+        <div className="flex flex-col md:flex-row items-center justify-center gap-6 text-base">
+          <a
+            href="https://wa.me/6281234567890"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#5cc9cb] transition"
+          >
+            📞 +62 823-653-6783
+          </a>
+          <a
+            href="mailto:freelanceexpert@gmail.com"
+            className="hover:text-[#5cc9cb] transition"
+          >
+            ✉️ freelanceexpert@gmail.com
+          </a>
+          <a
+            href="https://www.google.com/maps?q=primakara"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#5cc9cb] transition"
+          >
+            📍 Jl. Merdeka No.10, Denpasar, Bali
+          </a>
+        </div>
 
-            {/* Email */}
-            <a
-              href="mailto:freelanceexpert@gmail.com"
-              className="hover:text-[#5cc9cb] transition"
-            >
-              ✉️ freelanceexpert@gmail.com
-            </a>
-
-            {/* Alamat */}
-            <a
-              href="google.com/maps?sca_esv=f1b1fe1a0ad9e49d&output=search&q=primakara&source=lnms&fbs=AIIjpHwYn5PYZFUMfY6GOBRRFeKwIhsYlvQ8TQO08Ar3Kuk2WjsVNYrp-OGcZSb_GqBizAZR6vKROFNLhETxb1icv9rAZn9NXXC92s2m8gcP3-KSMwSL9mo-y09oBLD_9QXVgad_FsrR4cJWft1u7Rpc3qVXxFGexoVoU4UEXm1GrTsYJHVMMlHssEP0tbH5Ssm32YHt1CWgWBuuavo7Sj1_6Hd6GCbgBA&entry=mc&ved=1t:200715&ictx=111"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-[#5cc9cb] transition"
-            >
-              📍 Jl. Merdeka No.10, Denpasar, Bali
-            </a>
-          </div>
-
-          <p className="text-sm text-gray-300 mt-6">
-            © 2025 FreelanceExpert
-          </p>
-        </motion.footer>
-
+        <p className="text-sm text-gray-300 mt-6">© 2025 FreelanceExpert</p>
+      </motion.footer>
     </>
   );
 }
